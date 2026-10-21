@@ -72,6 +72,37 @@
             text-shadow: 0 0 30px var(--accent-glow), 0 0 10px var(--accent-color); transition: all 0.3s;
         }
 
+        .safe-odds-badge {
+            margin-top: 15px;
+            padding: 8px 16px;
+            background: rgba(0, 0, 0, 0.4);
+            border: 1px solid var(--accent-color);
+            border-radius: 8px;
+            color: var(--accent-color);
+            font-family: 'Share Tech Mono', monospace;
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            box-shadow: inset 0 0 10px var(--accent-glow);
+            opacity: 0; 
+            transition: opacity 0.4s ease, transform 0.4s ease;
+            transform: translateY(10px);
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .safe-odds-badge.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .safe-odds-badge span.val {
+            color: #fff;
+            font-weight: bold;
+            font-size: 1.1rem;
+            text-shadow: 0 0 5px rgba(255,255,255,0.5);
+        }
+
         /* MINES */
         .mines-grid {
             display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; 
@@ -158,7 +189,8 @@
         .form-control:focus { outline: none; border-color: var(--accent-color); }
         select.form-control { appearance: none; background-image: url("data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%23FFFFFF%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E"); background-repeat: no-repeat; background-position: right .7rem top 50%; background-size: .65rem auto; }
         textarea.form-control { height: 80px; resize: none; font-family: 'Share Tech Mono', monospace; }
-        .btn-admin { background: #fff; color: #000; padding: 15px; border-radius: 10px; border: none; font-weight: bold; width: 100%; margin-bottom: 10px; }
+        .btn-admin { background: #fff; color: #000; padding: 15px; border-radius: 10px; border: none; font-weight: bold; width: 100%; margin-bottom: 10px; cursor: pointer; transition: background 0.2s;}
+        .btn-admin:active { background: #ccc; }
         .hidden { display: none !important; }
     </style>
 </head>
@@ -182,6 +214,12 @@
         <!-- AVIATOR -->
         <div id="engine-aviator" class="game-container active">
             <div id="display-value" class="aviator-value">WAIT</div>
+            
+            <!-- Guaranteed Safe Odds Badge -->
+            <div id="safe-odds-container" class="safe-odds-badge">
+                <span id="ui-safe-text">SAFE MULTIPLIER:</span>
+                <span id="safe-val" class="val">--</span>
+            </div>
         </div>
 
         <!-- MINES -->
@@ -215,7 +253,7 @@
     <div id="admin-panel">
         <div class="flex justify-between items-center text-white mb-2 mt-4">
             <h2 class="text-xl font-bold font-['Jura'] text-red-500">CREATOR STUDIO</h2>
-            <button id="btn-close-admin" class="text-gray-400 p-2 text-2xl">&times;</button>
+            <button id="btn-close-admin" class="text-gray-400 p-2 text-2xl hover:text-white">&times;</button>
         </div>
         
         <div class="admin-card">
@@ -259,11 +297,15 @@
                 <input type="text" id="cfg-balance" class="form-control" value="24500.50">
             </div>
 
-            <!-- Специфичные настройки (меняются от игры) -->
+            <!-- Специфичные настройки -->
             <div id="aviator-settings" class="form-group mt-6">
                 <label class="text-white">Очередь коэффициентов (Aviator)</label>
-                <textarea id="cfg-queue" class="form-control">1.45, 2.30, 11.50, 1.05</textarea>
-                <button id="btn-reset-queue" class="mt-2 text-xs text-red-500 border border-red-900 rounded px-3 py-1">Сбросить очередь на начало</button>
+                <textarea id="cfg-queue" class="form-control mb-3">1.45, 2.30, 11.50, 1.05</textarea>
+                
+                <label class="text-white text-sm text-green-400">Очередь SAFE-коэффициентов (Aviator)</label>
+                <textarea id="cfg-safe-queue" class="form-control">1.10, 1.50, 5.00, 1.01</textarea>
+
+                <button id="btn-reset-queue" class="mt-2 text-xs text-red-500 border border-red-900 rounded px-3 py-1 bg-transparent hover:bg-red-900/50 transition-colors">Сбросить очередь на начало</button>
             </div>
 
             <div id="ai-settings" class="form-group mt-6 hidden bg-gray-900 p-4 rounded-lg border border-gray-700">
@@ -291,25 +333,27 @@
         { id: 'ug', name: 'Uganda', cur: 'UGX', lang: 'en' }, { id: 'tz', name: 'Tanzania', cur: 'TZS', lang: 'en' },
         { id: 'sn', name: 'Senegal', cur: 'XOF', lang: 'fr' }, { id: 'cm', name: 'Cameroon', cur: 'XAF', lang: 'fr' },
         { id: 'ng', name: 'Nigeria', cur: 'NGN', lang: 'en' }, { id: 'dz', name: 'Algeria', cur: 'DZD', lang: 'ar' },
-        { id: 'eg', name: 'Egypt', cur: 'EGP', lang: 'ar' }, { id: 'ma', name: 'Syria', cur: 'SYP', lang: 'ar' },
+        { id: 'eg', name: 'Egypt', cur: 'EGP', lang: 'ar' }, { id: 'ma', name: 'Morocco', cur: 'MAD', lang: 'ar' },
         { id: 'in', name: 'India', cur: 'INR', lang: 'en' }, { id: 'my', name: 'Malaysia', cur: 'MYR', lang: 'en' },
         { id: 'co', name: 'Colombia', cur: 'COP', lang: 'es' }, { id: 'cl', name: 'Chile', cur: 'CLP', lang: 'es' },
         { id: 'pe', name: 'Peru', cur: 'PEN', lang: 'es' }, { id: 'ar', name: 'Argentina', cur: 'ARS', lang: 'es' },
-        { id: 'mx', name: 'Mexico', cur: 'MXN', lang: 'es' }, { id: 'bd', name: 'Bangladesh', cur: 'BDT', lang: 'en' }
+        { id: 'mx', name: 'Mexico', cur: 'MXN', lang: 'es' }, { id: 'bd', name: 'Bangladesh', cur: 'BDT', lang: 'en' },
+        { id: 'ph', name: 'Philippines', cur: 'PHP', lang: 'en'}
     ];
 
+    // Added translation strings for the safe odds text
     const I18N = {
-        'en': { wait: "WAIT", predict: "GET SIGNAL", logs: ["[SYS] Connecting...", "[+] Handshake OK", "[!] Bypassing RNG...", "[+] Decrypted"] },
-        'ru': { wait: "ОЖИДАНИЕ", predict: "ПОЛУЧИТЬ СИГНАЛ", logs: ["[SYS] Подключение...", "[+] Доступ открыт", "[!] Обход ГСЧ...", "[+] Успех"] },
-        'es': { wait: "ESPERAR", predict: "OBTENER SEÑAL", logs: ["[SYS] Conectando...", "[+] Acceso concedido", "[!] Bypass RNG...", "[+] Éxito"] },
-        'fr': { wait: "ATTENDRE", predict: "OBTENIR SIGNAL", logs: ["[SYS] Connexion...", "[+] Accès autorisé", "[!] Contournement...", "[+] Succès"] },
-        'ar': { wait: "انتظار", predict: "الحصول على إشارة", logs: ["[SYS] متصل...", "[+] تم الوصول", "[!] تجاوز...", "[+] نجاح"] }
+        'en': { wait: "WAIT", predict: "GET SIGNAL", safeOdds: "GUARANTEED SAFE ODDS: ", logs: ["[SYS] Connecting...", "[+] Handshake OK", "[!] Bypassing RNG...", "[+] Decrypted"] },
+        'ru': { wait: "ОЖИДАНИЕ", predict: "ПОЛУЧИТЬ СИГНАЛ", safeOdds: "ГАРАНТИРОВАННЫЙ СЕЙВ: ", logs: ["[SYS] Подключение...", "[+] Доступ открыт", "[!] Обход ГСЧ...", "[+] Успех"] },
+        'es': { wait: "ESPERAR", predict: "OBTENER SEÑAL", safeOdds: "CUOTA SEGURA: ", logs: ["[SYS] Conectando...", "[+] Acceso concedido", "[!] Bypass RNG...", "[+] Éxito"] },
+        'fr': { wait: "ATTENDRE", predict: "OBTENIR SIGNAL", safeOdds: "COTE SÉCURISÉE: ", logs: ["[SYS] Connexion...", "[+] Accès autorisé", "[!] Contournement...", "[+] Succès"] },
+        'ar': { wait: "انتظار", predict: "الحصول على إشارة", safeOdds: "احتمالات آمنة: ", logs: ["[SYS] متصل...", "[+] تم الوصول", "[!] تجاوز...", "[+] نجاح"] }
     };
 
     // --- STATE ---
     let state = {
         product: '1xbet', game: 'Aviator', geo: 'ng', lang: 'en', balance: '24500.50',
-        queue: [1.45, 2.30, 11.50, 1.05], queueIndex: 0, isProcessing: false
+        queue: [1.45, 2.30, 11.50, 1.05], safeQueue: [1.10, 1.50, 5.00, 1.01], queueIndex: 0, isProcessing: false
     };
 
     // --- DOM ---
@@ -330,10 +374,15 @@
         aviatorVal: document.getElementById('display-value'),
         minesGrid: document.getElementById('mines-grid'),
         appleGrid: document.getElementById('apple-grid'),
-        penaltyGrid: document.getElementById('penalty-container')
+        penaltyGrid: document.getElementById('penalty-container'),
+
+        // Safe Odds specific
+        safeOddsBadge: document.getElementById('safe-odds-container'),
+        safeOddsText: document.getElementById('ui-safe-text'),
+        safeOddsVal: document.getElementById('safe-val')
     };
 
-    // --- STREAMING_CHUNK:Initialization ---
+    // --- STREAMING_CHUNK:Initialization logic ---
     function init() {
         // Заполняем ГЕО
         const geoSelect = document.getElementById('cfg-geo');
@@ -357,7 +406,20 @@
             document.getElementById('aviator-settings').classList.toggle('hidden', !isAvi);
             document.getElementById('ai-settings').classList.toggle('hidden', isAvi);
         });
-        document.getElementById('btn-reset-queue').onclick = () => { state.queueIndex = 0; alert("Очередь сброшена"); };
+        
+        // Сброс очереди без использования alert
+        document.getElementById('btn-reset-queue').onclick = function() { 
+            state.queueIndex = 0; 
+            const originalText = this.textContent;
+            this.textContent = "Успешно сброшено!";
+            this.classList.replace('text-red-500', 'text-green-500');
+            this.classList.replace('border-red-900', 'border-green-500');
+            setTimeout(() => {
+                this.textContent = originalText;
+                this.classList.replace('text-green-500', 'text-red-500');
+                this.classList.replace('border-green-500', 'border-red-900');
+            }, 2000);
+        };
         
         ui.btnPredict.onclick = processPrediction;
 
@@ -374,13 +436,16 @@
         if (state.game === 'Aviator') {
             const raw = document.getElementById('cfg-queue').value;
             state.queue = raw.split(',').map(s => parseFloat(s.trim().replace(',', '.'))).filter(n => !isNaN(n));
+            
+            const rawSafe = document.getElementById('cfg-safe-queue').value;
+            state.safeQueue = rawSafe.split(',').map(s => parseFloat(s.trim().replace(',', '.'))).filter(n => !isNaN(n));
         }
 
         ui.adminPanel.style.display = 'none';
         applyTheme();
     }
 
-    // --- STREAMING_CHUNK:Core Engine ---
+    // --- STREAMING_CHUNK:Theme and UI Updates ---
     function applyTheme() {
         const prod = PRODUCTS[state.product];
         const geo = GEOS.find(g => g.id === state.geo);
@@ -394,6 +459,9 @@
         ui.brandName.textContent = prod.name;
         ui.gameName.textContent = state.game.toUpperCase();
         ui.btnPredict.textContent = lang.predict;
+        
+        // Update Safe Odds Text
+        ui.safeOddsText.textContent = lang.safeOdds;
         
         const bal = parseFloat(state.balance);
         ui.balanceVal.textContent = isNaN(bal) ? state.balance : bal.toLocaleString('en-US');
@@ -425,11 +493,12 @@
         ui.terminal.scrollTop = ui.terminal.scrollHeight;
     }
 
-    // --- STREAMING_CHUNK:Prediction Logics ---
+    // --- STREAMING_CHUNK:Game logic rendering ---
     function resetGameUI() {
         if(state.game === 'Aviator') {
             ui.aviatorVal.textContent = I18N[state.lang].wait;
             ui.aviatorVal.style.opacity = 0.5;
+            ui.safeOddsBadge.classList.remove('visible');
         } else if (state.game === 'Mines') {
             ui.minesGrid.innerHTML = Array(25).fill('<div class="mine-cell"></div>').join('');
         } else if (state.game === 'Apple') {
@@ -487,19 +556,35 @@
         }, 300); // Ускоренная отрисовка логов
     }
 
+    // --- STREAMING_CHUNK:Result Rendering ---
     function showResult() {
         if (state.game === 'Aviator') {
-            let val = "1.00";
+            let val = 1.00;
+            let safeVal = 1.00;
+            
             if (state.queueIndex < state.queue.length) {
-                val = state.queue[state.queueIndex].toFixed(2);
+                val = state.queue[state.queueIndex];
+                // Берем из очереди сейвов или высчитываем автоматически, если значение не задано
+                safeVal = state.safeQueue[state.queueIndex] || Math.max(1.10, val * 0.65);
                 state.queueIndex++;
             } else {
-                val = (Math.random() * 5 + 1.1).toFixed(2); // Random fallback
+                val = (Math.random() * 5 + 1.1); // Random fallback
+                safeVal = Math.max(1.10, val * 0.65);
             }
-            ui.aviatorVal.textContent = val + "x";
+            
+            // Set main aviator value
+            ui.aviatorVal.textContent = val.toFixed(2) + "x";
             ui.aviatorVal.style.opacity = 1;
             ui.aviatorVal.style.transform = 'scale(1.2)';
-            setTimeout(() => ui.aviatorVal.style.transform = 'scale(1)', 200);
+            
+            // Set safe odds value
+            ui.safeOddsVal.textContent = safeVal.toFixed(2) + "x";
+            
+            // Show badge
+            setTimeout(() => {
+                ui.aviatorVal.style.transform = 'scale(1)';
+                ui.safeOddsBadge.classList.add('visible');
+            }, 200);
             
         } else if (state.game === 'Mines') {
             // Выбираем 4-6 рандомных ячеек
